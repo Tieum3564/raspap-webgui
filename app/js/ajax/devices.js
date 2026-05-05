@@ -3,227 +3,178 @@
  */
 
 let devicesPollingInterval = null;
-let devicesLastData = null;
 
 export function pollDevices() {
-    const url = '/api/clients';
-    
     $.ajax({
-        url: url,
+        url: 'ajax/networking/get_devices.php',
         type: 'GET',
         dataType: 'json',
         success: function(response) {
-            if (response && response.active_clients) {
-                updateDevicesUI(response.active_clients);
-                devicesLastData = response;
+            if (response && response.status === 'success') {
+                renderDevices(response.active_clients || []);
+            } else {
+                showDevicesError('Unable to fetch device data');
             }
         },
-        error: function(xhr, status, error) {
-            console.warn("Devices poll error:", error);
-            showDevicesError("<?php echo _('Unable to fetch device data'); ?>");
+        error: function() {
+            showDevicesError('Unable to fetch device data');
         }
     });
 }
 
-function updateDevicesUI(clients) {
+function renderDevices(clients) {
     const $container = $('#devicesList');
-    const $empty = $('#devicesEmpty');
-    const $error = $('#devicesError');
-    const $loading = $('#devicesLoading');
-    
-    // Hide loading and error states
+    const $empty     = $('#devicesEmpty');
+    const $error     = $('#devicesError');
+    const $loading   = $('#devicesLoading');
+
     $loading.hide();
     $error.hide();
-    
+
     if (!clients || clients.length === 0) {
         $container.hide();
         $empty.show();
         return;
     }
-    
-    // Show devices container
+
     $empty.hide();
     $container.show();
-    
-    // Sort clients: wireless first, then ethernet, then by hostname/MAC
-    const sorted = clients.sort((a, b) => {
+
+    // Wireless first, then by hostname/MAC
+    const sorted = clients.slice().sort((a, b) => {
         if (a.connection_type !== b.connection_type) {
             if (a.connection_type === 'wireless') return -1;
             if (b.connection_type === 'wireless') return 1;
         }
         return (a.hostname || a.mac_address || '').localeCompare(b.hostname || b.mac_address || '');
     });
-    
-    // Build HTML for each device
-    let html = '';
-    sorted.forEach(client => {
-        html += buildDeviceCard(client);
-    });
-    
-    $container.html(html);
+
+    $container.html(sorted.map(buildDeviceCard).join(''));
 }
 
 function buildDeviceCard(client) {
-    const vendor = client.vendor || 'Unknown';
-    const type = client.connection_type || 'unknown';
-    const typeLabel = type === 'wireless' ? '<?php echo _("Wireless"); ?>' : '<?php echo _("Wired"); ?>';
-    const hostname = client.hostname || '-';
-    const ip = client.ip_address || '-';
-    const mac = client.mac_address || '-';
-    
-    // Calculate connection duration
-    const duration = formatConnectionDuration(client.timestamp);
-    
-    // Build signal bar for wireless
-    let signalHtml = '';
-    if (type === 'wireless' && client.signal_dbm) {
-        signalHtml = buildSignalBar(client.signal_dbm);
+    const vendor   = escapeHtml(client.vendor || 'Unknown');
+    const type     = client.connection_type || 'unknown';
+    const typeLabel = type === 'wireless' ? 'Wireless' : (type === 'ethernet' ? 'Wired' : 'Unknown');
+    const hostname = escapeHtml(client.hostname || '-');
+    const ip       = escapeHtml(client.ip_address || '-');
+    const mac      = escapeHtml(client.mac_address || '-');
+
+    let signalRow = '';
+    if (type === 'wireless' && client.signal_dbm != null) {
+        const bars = buildSignalBar(client.signal_dbm);
+        signalRow = `
+            <div class="device-detail-row">
+                <span class="device-detail-label">Signal</span>
+                <span class="device-detail-value">
+                    <div class="device-signal">
+                        ${bars}
+                        <span>${client.signal_dbm} dBm</span>
+                    </div>
+                </span>
+            </div>`;
     }
-    
+
+    let durationRow = '';
+    if (type === 'wireless' && client.connected_seconds != null) {
+        const dur = formatDuration(client.connected_seconds);
+        durationRow = `
+            <div class="device-detail-row">
+                <span class="device-detail-label">Connected</span>
+                <span class="device-detail-value">${dur}</span>
+            </div>`;
+    }
+
     return `
-        <div class="device-card" data-mac="${escapeHtml(mac)}">
+        <div class="device-card" data-mac="${mac}">
             <div class="device-header">
                 <div>
-                    <p class="device-vendor">${escapeHtml(vendor)}</p>
+                    <p class="device-vendor">${vendor}</p>
                     <span class="device-type-badge ${type}">${typeLabel}</span>
                 </div>
                 <div class="device-status">
-                    <i class="fas fa-check-circle"></i>
-                    <?php echo _('Connected'); ?>
+                    <i class="fas fa-check-circle"></i> Connected
                 </div>
             </div>
             <div class="device-details">
                 <div class="device-detail-row">
-                    <span class="device-detail-label"><?php echo _('Hostname'); ?></span>
-                    <span class="device-detail-value">${escapeHtml(hostname)}</span>
+                    <span class="device-detail-label">Hostname</span>
+                    <span class="device-detail-value">${hostname}</span>
                 </div>
                 <div class="device-detail-row">
-                    <span class="device-detail-label"><?php echo _('IP Address'); ?></span>
-                    <span class="device-detail-value">${escapeHtml(ip)}</span>
+                    <span class="device-detail-label">IP Address</span>
+                    <span class="device-detail-value">${ip}</span>
                 </div>
                 <div class="device-detail-row">
-                    <span class="device-detail-label"><?php echo _('MAC Address'); ?></span>
-                    <span class="device-detail-value font-monospace" style="font-size: 0.8rem;">${escapeHtml(mac)}</span>
+                    <span class="device-detail-label">MAC Address</span>
+                    <span class="device-detail-value font-monospace" style="font-size:0.8rem;">${mac}</span>
                 </div>
-                ${type === 'wireless' && client.signal_dbm ? `
-                    <div class="device-detail-row">
-                        <span class="device-detail-label"><?php echo _('Signal'); ?></span>
-                        <span class="device-detail-value">
-                            <div class="device-signal">
-                                ${signalHtml}
-                                <span>${client.signal_dbm} dBm</span>
-                            </div>
-                        </span>
-                    </div>
-                ` : ''}
-                ${duration ? `
-                    <div class="device-detail-row">
-                        <span class="device-detail-label"><?php echo _('Connected'); ?></span>
-                        <span class="device-detail-value">${duration}</span>
-                    </div>
-                ` : ''}
+                ${signalRow}
+                ${durationRow}
             </div>
-        </div>
-    `;
+        </div>`;
 }
 
-function buildSignalBar(signalDbm) {
-    // Convert dBm to quality percentage (-30dBm = 100%, -90dBm = 0%)
-    const quality = Math.max(0, Math.min(100, 2 * (signalDbm + 100)));
-    const numBars = 5;
+function buildSignalBar(dbm) {
+    const quality    = Math.max(0, Math.min(100, 2 * (dbm + 100)));
+    const numBars    = 5;
     const activeBars = Math.ceil((quality / 100) * numBars);
-    
-    let bars = '<div class="signal-bar">';
+    const colorClass = quality >= 75 ? 'active' : (quality >= 50 ? 'warn' : 'crit');
+
+    const heights = [25, 40, 55, 70, 85]; // % height per segment
+    let html = '<div class="signal-bar">';
     for (let i = 1; i <= numBars; i++) {
-        let cssClass = 'signal-bar-segment';
-        if (i <= activeBars) {
-            if (quality >= 75) {
-                cssClass += ' active';
-            } else if (quality >= 50) {
-                cssClass += ' warn';
-            } else {
-                cssClass += ' crit';
-            }
-        }
-        bars += `<div class="${cssClass}"></div>`;
+        const cls = i <= activeBars ? `signal-bar-segment ${colorClass}` : 'signal-bar-segment';
+        html += `<div class="${cls}" style="height:${heights[i-1]}%;align-self:flex-end;"></div>`;
     }
-    bars += '</div>';
-    
-    return bars;
+    html += '</div>';
+    return html;
 }
 
-function formatConnectionDuration(timestamp) {
-    if (!timestamp) return '';
-    
-    // Calculate seconds since lease expiry (approximate connection time)
-    const now = Math.floor(Date.now() / 1000);
-    const seconds = Math.max(0, timestamp - now);
-    
-    if (seconds <= 0) return '< 1 min';
-    
-    if (seconds < 60) {
-        return seconds + ' sec';
-    } else if (seconds < 3600) {
-        const mins = Math.floor(seconds / 60);
-        return mins + ' min';
-    } else if (seconds < 86400) {
-        const hours = Math.floor(seconds / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-        return hours + 'h ' + mins + 'm';
-    } else {
-        const days = Math.floor(seconds / 86400);
-        return days + 'd';
-    }
+function formatDuration(seconds) {
+    if (seconds < 60)   return seconds + 's';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return h + 'h ' + m + 'm';
 }
 
-function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function showDevicesError(message) {
-    $('#devicesError').show();
-    $('#devicesErrorText').text(message);
+    $('#devicesLoading').hide();
     $('#devicesList').hide();
     $('#devicesEmpty').hide();
-    $('#devicesLoading').hide();
+    $('#devicesError').show();
+    $('#devicesErrorText').text(message);
 }
 
 export function initDevicesAjax() {
     console.info("RaspAP Devices AJAX module initialized");
-    
-    // Get polling interval from page
+
     const interval = window.DEVICES_POLL_INTERVAL || 5000;
-    
-    // Initial poll
+
     $('#devicesLoading').show();
     pollDevices();
-    
-    // Set up polling interval
-    if (devicesPollingInterval) {
-        clearInterval(devicesPollingInterval);
-    }
+
+    if (devicesPollingInterval) clearInterval(devicesPollingInterval);
     devicesPollingInterval = setInterval(pollDevices, interval);
-    
-    // Handle manual refresh button
+
     $('#devicesRefreshBtn').on('click', function() {
-        $(this).find('i').addClass('fa-spin');
+        const $icon = $(this).find('i');
+        $icon.addClass('fa-spin');
         pollDevices();
-        setTimeout(() => {
-            $(this).find('i').removeClass('fa-spin');
-        }, 300);
+        setTimeout(() => $icon.removeClass('fa-spin'), 400);
     });
 }
 
-// Cleanup polling on page unload
 $(window).on('beforeunload', function() {
-    if (devicesPollingInterval) {
-        clearInterval(devicesPollingInterval);
-    }
+    if (devicesPollingInterval) clearInterval(devicesPollingInterval);
 });

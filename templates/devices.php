@@ -17,7 +17,7 @@
         <?php $status->showMessages(); ?>
         
         <!-- Loading State -->
-        <div id="devicesLoading" class="text-center py-5" style="display: none;">
+        <div id="devicesLoading" class="text-center py-5">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden"><?php echo _('Loading'); ?></span>
           </div>
