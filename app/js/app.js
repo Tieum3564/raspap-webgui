@@ -18,6 +18,7 @@ import { initSystem } from "./ui/system.js";
 import { initAbout } from "./ui/about.js";
 import { initLogin } from "./ui/login.js";
 import { initMobileClient_ui } from "./ui/mobileclient.js";
+import { initDevices } from "./ui/devices.js";
 
 // ajax handlers
 import { initHostapd_ajax } from "./ajax/hostapd.js";
@@ -89,6 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
         case '/mobileclient_conf':
             initMobileClient_ui();
             initMobileClient_ajax();
+            break;
+        case '/devices':
+            initDevices();
             break;
         default:
             console.warn(`No initialization function defined for path: ${path}`);

@@ -34,6 +34,9 @@ class Sidebar {
         $this->addItem(_('Mobile data'), 'fas fa-mobile-alt', 'mobileclient_conf', 65,
             fn() => RASPI_MOBILECLIENT_ENABLED
         );
+        $this->addItem(_('Network devices'), 'fas fa-sitemap', 'devices', 66,
+            fn() => RASPI_HOTSPOT_ENABLED || RASPI_NETWORK_ENABLED
+        );
         $this->addItem(_('OpenVPN'), 'fas fa-key', 'openvpn_conf', 70,
             fn() => RASPI_OPENVPN_ENABLED
         );

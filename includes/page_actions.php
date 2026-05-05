@@ -34,6 +34,9 @@ function handleCorePageAction(string $page, array &$extraFooterScripts): void
         case "/mobileclient_conf":
             DisplayMobileClientConfig();
             break;
+        case "/devices":
+            DisplayDevicesConfig();
+            break;
         case "/network_conf":
             DisplayNetworkingConfig($extraFooterScripts);
             break;
