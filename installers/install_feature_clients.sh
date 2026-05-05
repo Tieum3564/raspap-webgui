@@ -36,5 +36,14 @@ function _install_feature_clients() {
     sudo cp "$webroot_dir/config/client_config/"*.service "/etc/systemd/system/" || _install_status 1 "Unable to install client startup services ($name)"
     # client configuration and udev rule templates
     sudo cp "$webroot_dir/config/client_udev_prototypes.json" "/etc/raspap/networking/" || _install_status 1 "Unable to install client configuration ($name)"
+
+    _install_log " - enable mobile data UI feature flag"
+    sudo sed -i "s/\('RASPI_MOBILECLIENT_ENABLED', \)false/\1true/g" "$webroot_dir/includes/config.php" || _install_status 1 "Unable to enable mobile data feature in config.php"
+
+    _install_log " - reload systemd and udev"
+    sudo systemctl daemon-reload || _install_status 1 "Unable to reload systemd daemon ($name)"
+    sudo udevadm control --reload-rules || _install_status 1 "Unable to reload udev rules ($name)"
+    sudo udevadm trigger || _install_status 1 "Unable to trigger udev events ($name)"
+
     _install_status 0
 }

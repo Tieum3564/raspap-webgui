@@ -31,6 +31,9 @@ function handleCorePageAction(string $page, array &$extraFooterScripts): void
         case "/wpa_conf":
             DisplayWPAConfig();
             break;
+        case "/mobileclient_conf":
+            DisplayMobileClientConfig();
+            break;
         case "/network_conf":
             DisplayNetworkingConfig($extraFooterScripts);
             break;

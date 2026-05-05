@@ -396,12 +396,17 @@ function _install_lighttpd_configs() {
 }
 
 function _prompt_install_features() {
+        if [ -f "$webroot_dir/installers/install_feature_clients.sh" ]; then
+                source "$webroot_dir/installers/install_feature_clients.sh"
+        fi
+
     readonly features=(
       "Ad blocking:Install Ad blocking and enable list management:adblock_option:_install_adblock"
       "OpenVPN:Install OpenVPN and enable client configuration:ovpn_option:_install_openvpn"
       "RestAPI:Install and enable RestAPI:restapi_option:_install_restapi"
       "WireGuard:Install WireGuard and enable VPN tunnel configuration:wg_option:_install_wireguard"
       "VPN provider:Enable VPN provider client configuration:pv_option:_install_provider"
+            "Mobile data clients:Install mobile data dependencies and enable Mobile data UI:mobiledata_option:_install_feature_clients"
     )
     for feature in "${features[@]}"; do
       IFS=':' read -r -a feature_details <<< "$feature"

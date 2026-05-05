@@ -31,6 +31,9 @@ class Sidebar {
         $this->addItem(_('WiFi client'), 'fas fa-wifi', 'wpa_conf', 60,
             fn() => RASPI_WIFICLIENT_ENABLED && !$_SESSION["bridgedEnabled"]
         );
+        $this->addItem(_('Mobile data'), 'fas fa-mobile-alt', 'mobileclient_conf', 65,
+            fn() => RASPI_MOBILECLIENT_ENABLED
+        );
         $this->addItem(_('OpenVPN'), 'fas fa-key', 'openvpn_conf', 70,
             fn() => RASPI_OPENVPN_ENABLED
         );

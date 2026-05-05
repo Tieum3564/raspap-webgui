@@ -53,6 +53,7 @@ define('RASPI_AUTH_ENABLED', true);
 
 // Optional services, set to true to enable.
 define('RASPI_WIFICLIENT_ENABLED', true);
+define('RASPI_MOBILECLIENT_ENABLED', false);
 define('RASPI_HOTSPOT_ENABLED', true);
 define('RASPI_NETWORK_ENABLED', true);
 define('RASPI_DHCP_ENABLED', true);
@@ -69,6 +70,7 @@ define('RASPI_MONITOR_ENABLED', false);
 define('RASPI_RESTAPI_ENABLED', false);
 define('RASPI_PLUGINS_ENABLED', true);
 define('RASPI_UI_STATIC_LOGO', false);
+define('RASPI_MOBILEDATA_HILINK_HOST', '192.168.8.1');
 
 // Locale settings
 define('LOCALE_ROOT', 'locale');

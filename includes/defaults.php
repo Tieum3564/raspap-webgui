@@ -68,6 +68,7 @@ $defaults = [
 
     // Optional services, set to true to enable.
     'RASPI_WIFICLIENT_ENABLED' => true,
+    'RASPI_MOBILECLIENT_ENABLED' => false,
     'RASPI_HOTSPOT_ENABLED' => true,
     'RASPI_NETWORK_ENABLED' => true,
     'RASPI_DHCP_ENABLED' => true,
@@ -82,6 +83,7 @@ $defaults = [
     'RASPI_MONITOR_ENABLED' => false,
     'RASPI_RESTAPI_ENABLED' => false,
     'RASPI_PLUGINS_ENABLED' => true,
+    'RASPI_MOBILEDATA_HILINK_HOST' => '192.168.8.1',
 
     // Locale settings
     'LOCALE_ROOT' => 'locale',

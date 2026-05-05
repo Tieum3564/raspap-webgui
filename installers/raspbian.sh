@@ -43,6 +43,7 @@ OPTIONS:
 -s, --rest, --restapi <flag>        Used with -y, --yes, sets RestAPI install option (0=no install)
 -a, --adblock <flag>                Used with -y, --yes, sets Adblock install option (0=no install)
 -w, --wireguard <flag>              Used with -y, --yes, sets WireGuard install option (0=no install)
+-M, --mobiledata <flag>             Used with -y, --yes, sets Mobile data clients install option (0=no install)
 -e, --provider <value>              Used with -y, --yes, sets the VPN provider install option
 -g, --tcp-bbr <value>               Used with -y, --yes, sets the TCP BBR congestion control algorithm option
 -r, --repo, --repository <name>     Overrides the default GitHub repo (RaspAP/raspap-webgui)
@@ -106,6 +107,7 @@ function _parse_params() {
     restapi_option=1
     adblock_option=1
     wg_option=1
+    mobiledata_option=1
     insiders=0
     ssh=0
     minwrite=0
@@ -133,6 +135,10 @@ function _parse_params() {
             ;;
             -w|--wireguard)
             wg_option="$2"
+            shift
+            ;;
+            -M|--mobiledata)
+            mobiledata_option="$2"
             shift
             ;;
             -e|--provider)
