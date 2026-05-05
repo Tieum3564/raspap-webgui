@@ -3,3 +3,7 @@ uvicorn==0.25.0
 psutil==5.9.8
 python-dotenv==1.2.2
 
+# NOTE: iPhone USB tethering requires OS packages on Raspberry Pi,
+# not Python pip packages. Install these with apt on the Pi:
+#   sudo apt update
+#   sudo apt install -y usbmuxd libimobiledevice6 libimobiledevice-utils ifuse

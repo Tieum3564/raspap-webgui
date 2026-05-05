@@ -72,6 +72,9 @@ if (file_exists(RASPI_DNSMASQ_LEASES)) {
     }
 }
 
+// --- Add active uplink/tethering interfaces (not present in dnsmasq leases) ---
+$clients = array_merge($clients, getTetheringUplinkDevices($clients));
+
 echo json_encode([
     'status'         => 'success',
     'active_clients' => $clients,
@@ -196,4 +199,63 @@ function getVendorName(string $mac): string
 
     $prefix = strtoupper(substr($mac, 0, 8));
     return $vendors[$prefix] ?? 'Unknown';
+}
+
+/**
+ * Detect active tethering/uplink interfaces (eg eth1, enx*, usb*, rndis*).
+ * These interfaces are upstream links and do not appear in dnsmasq lease files.
+ */
+function getTetheringUplinkDevices(array $existingClients): array
+{
+    $extra = [];
+    $knownMacs = [];
+    foreach ($existingClients as $client) {
+        if (!empty($client['mac_address'])) {
+            $knownMacs[] = strtoupper($client['mac_address']);
+        }
+    }
+
+    exec("ip -o -4 addr show scope global 2>/dev/null", $lines, $rc);
+    if ($rc !== 0 || empty($lines)) {
+        return $extra;
+    }
+
+    foreach ($lines as $line) {
+        // Example: "3: eth1    inet 172.20.10.7/28 brd ..."
+        if (!preg_match('/^\d+:\s+(\S+)\s+inet\s+(\d+\.\d+\.\d+\.\d+)\//', $line, $m)) {
+            continue;
+        }
+
+        $iface = $m[1];
+        $ip = $m[2];
+
+        // Match common tethering/uplink interface names.
+        if (!preg_match('/^(eth[1-9]\d*|enx[0-9a-f]+|usb\d+|rndis\d+|wwan\d+|ppp\d+)$/i', $iface)) {
+            continue;
+        }
+
+        $mac = '';
+        $addrPath = '/sys/class/net/' . $iface . '/address';
+        if (is_readable($addrPath)) {
+            $mac = strtoupper(trim((string) @file_get_contents($addrPath)));
+        }
+
+        // Skip duplicates already represented by lease-based clients.
+        if ($mac !== '' && in_array($mac, $knownMacs, true)) {
+            continue;
+        }
+
+        $extra[] = [
+            'timestamp' => time(),
+            'mac_address' => $mac,
+            'ip_address' => $ip,
+            'hostname' => $iface,
+            'client_id' => '',
+            'vendor' => $mac !== '' ? getVendorName($mac) : 'Unknown',
+            'connection_type' => 'ethernet',
+            'interface' => $iface,
+        ];
+    }
+
+    return $extra;
 }

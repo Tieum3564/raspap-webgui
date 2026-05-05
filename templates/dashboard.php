@@ -37,7 +37,7 @@
               <a href="/network_conf" title="<?php echo _("Cellular"); ?>" class="<?php echo $cellularActive; ?>"><i class="fas fa-broadcast-tower fa-2xl"></i></a>
             </div>
             <img src="app/img/dashed.svg" class="dashed-lines" alt="">
-            <img src="<?php echo htmlspecialchars(renderConnection($connectionType)); ?>" class="solid-lines" alt="Network connection">
+            <img src="<?php echo htmlspecialchars(renderConnection($connectionType, $hasActiveTethering)); ?>" class="solid-lines" alt="Network connection">
           </div>
           <div class="center-device col-12 col-lg-4">
             <div class="center-device-top">

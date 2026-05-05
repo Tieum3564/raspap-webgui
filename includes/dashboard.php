@@ -62,7 +62,8 @@ function DisplayDashboard(): void
     $publicSsid = $publicWireless['ssid'];
     $ethernetActive = ($connectionType === 'ethernet') ? "active" : "inactive";
     $wirelessActive = ($connectionType === 'wireless') ? "active" : "inactive";
-    $tetheringActive = ($connectionType === 'tethering') ? "active" : "inactive";
+    $hasActiveTethering = hasActiveConnectionInterface('/^(usb\d+|rndis\d+|eth[1-9]\d*|enx[0-9a-f]+)/i');
+    $tetheringActive = ($connectionType === 'tethering' || $hasActiveTethering) ? "active" : "inactive";
     $cellularActive = ($connectionType === 'cellular') ? "active" : "inactive";
     $bridgedStatus = ($bridgedEnable == 1) ? "active" : "";
     $hostapdStatus = ($hostapd[0] == 1) ?  "active" : "";
@@ -132,6 +133,7 @@ function DisplayDashboard(): void
             "totalClientsActive",
             "connectionType",
             "connectionIcon",
+            "hasActiveTethering",
             "ethernetActive",
             "wirelessActive",
             "tetheringActive",
@@ -146,9 +148,10 @@ function DisplayDashboard(): void
  * connection type
  *
  * @param string $connectionType
+ * @param bool $hasActiveTethering
  * @return string
  */
-function renderConnection(string $connectionType): string
+function renderConnection(string $connectionType, bool $hasActiveTethering = false): string
 {
     $deviceMap = [
         'ethernet'  => 'device-1',
@@ -156,10 +159,25 @@ function renderConnection(string $connectionType): string
         'tethering' => 'device-3',
         'cellular'  => 'device-4'
     ];
-    $device = $deviceMap[$connectionType] ?? 'device-unknown';
+
+    $devices = [];
+    $primary = $deviceMap[$connectionType] ?? null;
+    if ($primary !== null) {
+        $devices[] = $primary;
+    }
+
+    // If USB tethering is active while another uplink is primary (eg repeater),
+    // render both paths to match icon state.
+    if ($hasActiveTethering && !in_array('device-3', $devices, true)) {
+        $devices[] = 'device-3';
+    }
+
+    if (empty($devices)) {
+        return 'app/img/solid.php?joint&out';
+    }
 
     // return generated URL for solid.php
-    return sprintf('app/img/solid.php?joint&%s&out', $device);
+    return sprintf('app/img/solid.php?joint&%s&out', implode('&', $devices));
 }
 
 /**
@@ -184,5 +202,27 @@ function renderClientConnections(int $wirelessClients, int $ethernetClients): st
         '<img src="app/img/right-solid.php?%s" class="solid-lines solid-lines-right" alt="Client connections">',
         implode('&', $devices)
     );
+}
+
+/**
+ * Detects whether any interface matching $pattern currently has
+ * a global IPv4 address assigned.
+ */
+function hasActiveConnectionInterface(string $pattern): bool
+{
+    exec('ip -o -4 addr show scope global 2>/dev/null', $lines, $rc);
+    if ($rc !== 0 || empty($lines)) {
+        return false;
+    }
+
+    foreach ($lines as $line) {
+        if (preg_match('/^\d+:\s+(\S+)\s+inet\s+\d+\.\d+\.\d+\.\d+\//', $line, $m)) {
+            if (preg_match($pattern, $m[1])) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
