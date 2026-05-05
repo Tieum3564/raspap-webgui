@@ -17,6 +17,7 @@ import { initRestApi } from "./ui/restapi.js";
 import { initSystem } from "./ui/system.js";
 import { initAbout } from "./ui/about.js";
 import { initLogin } from "./ui/login.js";
+import { initMobileClient_ui } from "./ui/mobileclient.js";
 
 // ajax handlers
 import { initHostapd_ajax } from "./ajax/hostapd.js";
@@ -30,6 +31,7 @@ import { initSession_ajax } from "./ajax/session.js";
 import { initSystem_ajax} from "./ajax/system.js";
 import { initPlugins_ajax } from "./ajax/plugins.js";
 import { initAbout_ajax } from "./ajax/about.js";
+import { initMobileClient_ajax } from "./ajax/mobileclient.js";
 
 document.addEventListener('DOMContentLoaded', () => {
     console.info("RaspAP app.js initialized");
@@ -83,6 +85,10 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
         case '/login':
             initLogin();
+            break;
+        case '/mobileclient_conf':
+            initMobileClient_ui();
+            initMobileClient_ajax();
             break;
         default:
             console.warn(`No initialization function defined for path: ${path}`);

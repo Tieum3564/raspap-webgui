@@ -45,6 +45,15 @@ function DisplayMobileClientConfig()
 
 function getMobileClientSettings()
 {
+    // Try to load from persistent config first
+    $persistentSettings = loadMobileClientSettingsFromDisk();
+    if ($persistentSettings !== null) {
+        // Also save to session for current request
+        $_SESSION['mobileclient'] = $persistentSettings;
+        return $persistentSettings;
+    }
+
+    // Fall back to session-only storage if no persistent config
     if (!isset($_SESSION['mobileclient']) || !is_array($_SESSION['mobileclient'])) {
         $_SESSION['mobileclient'] = [
             'device' => getMobileClientDefaultDevice(),
@@ -60,7 +69,73 @@ function getMobileClientSettings()
 
 function saveMobileClientSettings(array $settings)
 {
+    // Save to session immediately
     $_SESSION['mobileclient'] = $settings;
+
+    // Try to persist to disk
+    saveMobileClientSettingsToDisk($settings);
+}
+
+function getMobileClientConfigPath()
+{
+    return RASPI_CONFIG . '/mobileclient.json';
+}
+
+function loadMobileClientSettingsFromDisk()
+{
+    $configPath = getMobileClientConfigPath();
+
+    if (!is_file($configPath) || !is_readable($configPath)) {
+        return null;
+    }
+
+    $contents = @file_get_contents($configPath);
+    if ($contents === false) {
+        return null;
+    }
+
+    $data = @json_decode($contents, true);
+    if (!is_array($data)) {
+        return null;
+    }
+
+    return $data;
+}
+
+function saveMobileClientSettingsToDisk(array $settings)
+{
+    $configPath = getMobileClientConfigPath();
+    $configDir = dirname($configPath);
+
+    // Ensure directory exists with proper permissions
+    if (!is_dir($configDir)) {
+        @mkdir($configDir, 0755, true);
+    }
+
+    // Write settings as JSON with restricted permissions
+    $jsonData = json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if ($jsonData === false) {
+        error_log('Failed to encode mobile client settings as JSON');
+        return false;
+    }
+
+    $tmpFile = $configPath . '.tmp';
+    if (@file_put_contents($tmpFile, $jsonData, LOCK_EX) === false) {
+        error_log('Failed to write temporary mobile client config: ' . $tmpFile);
+        return false;
+    }
+
+    // Atomic move
+    if (!@rename($tmpFile, $configPath)) {
+        @unlink($tmpFile);
+        error_log('Failed to finalize mobile client config: ' . $configPath);
+        return false;
+    }
+
+    // Set restrictive permissions on config file (read/write for owner only)
+    @chmod($configPath, 0600);
+
+    return true;
 }
 
 function getMobileClientDefaultDevice()
@@ -120,8 +195,50 @@ function getMobileClientInterfaces()
     return $interfaces;
 }
 
+function getMobileClientDeviceType($interface)
+{
+    // Detect device type based on interface naming conventions
+    if (preg_match('/^hilink/i', $interface)) {
+        return 'hilink';
+    } elseif (preg_match('/^(enx|usb|rndis)/i', $interface)) {
+        return 'usb_tethering';
+    } elseif (preg_match('/^(wwan|ppp)/i', $interface)) {
+        return 'modem';
+    }
+
+    return 'unknown';
+}
+
+function getMobileClientInterfaceLabel($interface)
+{
+    $type = getMobileClientDeviceType($interface);
+    
+    $labels = [
+        'hilink' => 'Hilink Dongle',
+        'usb_tethering' => 'USB Tethering',
+        'modem' => 'Mobile Modem',
+        'unknown' => 'Unknown'
+    ];
+
+    return ($labels[$type] ?? 'Mobile') . ' (' . htmlspecialchars($interface, ENT_QUOTES, 'UTF-8') . ')';
+}
+
 function executeMobileClientToggle(array $settings, $connect, $status)
 {
+    $deviceType = getMobileClientDeviceType($settings['device']);
+
+    if ($deviceType === 'usb_tethering') {
+        // USB tethering doesn't require explicit connection commands
+        // It's automatically managed by the OS once plugged in
+        if ($connect) {
+            $status->addMessage(_('USB tethering is ready when device is connected'), 'info');
+        } else {
+            $status->addMessage(_('Disconnect the tethering device to stop'), 'info');
+        }
+        return [];
+    }
+
+    // Hilink dongle
     $script = resolveMobileClientScript('onoff_huawei_hilink.sh');
     if ($script === null) {
         $status->addMessage(_('Unable to find onoff_huawei_hilink.sh on this system'), 'danger');
@@ -167,6 +284,44 @@ function executeMobileClientToggle(array $settings, $connect, $status)
 }
 
 function getMobileClientInfo(array $settings)
+{
+    $deviceType = getMobileClientDeviceType($settings['device']);
+
+    if ($deviceType === 'usb_tethering') {
+        return getMobileClientInfoUSBTethering($settings['device']);
+    } else {
+        return getMobileClientInfoHilink($settings);
+    }
+}
+
+function getMobileClientInfoUSBTethering($interface)
+{
+    $result = [
+        'status' => 'down',
+        'mode' => 'none',
+        'signal' => 'N/A',
+        'operator' => 'N/A',
+        'ipaddress' => 'none',
+        'device' => 'USB Tethering',
+        'manufacturer' => 'Mobile Phone'
+    ];
+
+    // Check if interface is up
+    exec("ip link show " . escapeshellarg($interface) . " 2>/dev/null", $linkOutput, $linkCode);
+    if ($linkCode === 0 && !empty($linkOutput)) {
+        // Check for IP address
+        exec("ip addr show " . escapeshellarg($interface) . " 2>/dev/null | grep -oP '(?<=inet\\s)\\S+'", $addrOutput, $addrCode);
+        if ($addrCode === 0 && !empty($addrOutput)) {
+            $result['status'] = 'up';
+            $result['ipaddress'] = trim($addrOutput[0]);
+            $result['mode'] = 'USB Tethering';
+        }
+    }
+
+    return $result;
+}
+
+function getMobileClientInfoHilink(array $settings)
 {
     $fields = ['mode', 'signal', 'operator', 'ipaddress', 'device', 'manufacturer'];
     $result = [
